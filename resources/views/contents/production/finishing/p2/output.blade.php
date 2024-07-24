@@ -1,0 +1,427 @@
+<div class="tab-pane active" id="tabInput" role="tabpanel">
+    <div class="form-group row">
+        <div class="col-md-12">
+            @if (Auth::user()->roles_name !== 'validator')
+                @if (!$data->validated_at)
+                    <button type="button" class="btn btn-primary btn-sm waves-effect waves-classic float-left mr-2"
+                        onclick="tambah($(this))">
+                        <i class="icon md-plus mr-2"></i> Tambah Barang</button>
+                    <button type="button" class="btn btn-warning btn-sm waves-effect waves-classic float-left mr-2"
+                        onclick="terimaSemuaBarangJasaLuar($(this))" data-id="{{ $data->id }}" data-proses="p2">
+                        <i class="icon md-plus mr-2"></i> Terima Semua</button>
+                @endif
+            @endif
+        </div>
+    </div>
+
+    <div class="form-group row">
+        <div class="col-md-12">
+            <table class="table table-bordered table-hover table-striped" cellspacing="0" id="table-detail">
+                <thead>
+                    <tr>
+                        <th width="30px">No.</th>
+                        <th>Tanggal</th>
+                        <th>Tgl. Potong</th>
+                        <th>Mesin</th>
+                        <th>No. KIKW</th>
+                        <th>No. KIKS</th>
+                        <th>Barang</th>
+                        <th>Warna</th>
+                        <th>Motif</th>
+                        <th>Kualitas</th>
+                        <th>Gudang</th>
+                        <th>Volume (Pcs)</th>
+                        <th>Status</th>
+                        <th>Aksi</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade modal-fade-in-scale-up" id="modal-kelola" aria-hidden="true" role="dialog" tabindex="-1"
+    data-backdrop="static" data-keyboard="false">
+    <div class="modal-dialog modal-simple modal-center">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" aria-label="Close" onclick="closeModal()">
+                    <span aria-hidden="true">×</span>
+                </button>
+                <h4 class="modal-title">Form</h4>
+            </div>
+            <div class="modal-body" style="padding-bottom: 20px;">
+                <form class="form-horizontal" id="form" action="" method="POST"
+                    enctype="multipart/form-data">
+                    @csrf
+                    <input type="hidden" name="id" id="id">
+                    <input type="hidden" name="id_p2" id="id_p2">
+                    <input type="hidden" name="mode" id="mode" value="detail">
+                    <input type="hidden" name="tipe" id="tipe" value="output">
+                    <div class="form-group">
+                        <label>Tanggal</label>
+                        <input type="date" value="{{ date('Y-m-d') }}" class="form-control" onchange=""
+                            name="tanggal" id="tanggal" required />
+                    </div>
+                    <div class="form-group">
+                        <label>Gudang</label>
+                        <select class="form-control" name="id_gudang" id="gudang">
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Barang</label>
+                        <select class="form-control" id="barang" onchange="getBarang($(this))">
+                        </select>
+                    </div>
+                    <input type="hidden" name="id_mesin" id="id_mesin">
+                    <input type="hidden" name="id_barang" id="id_barang">
+                    <input type="hidden" name="id_warna" id="id_warna">
+                    <input type="hidden" name="id_motif" id="id_motif">
+                    <input type="hidden" name="id_beam" id="id_beam">
+                    <input type="hidden" name="id_songket" id="id_songket">
+                    <input type="hidden" name="id_parent" id="id_parent">
+                    <input type="hidden" name="id_inspect_retur" id="id_inspect_retur">
+                    <input type="hidden" name="tanggal_potong" id="tanggal_potong">
+                    <div class="form-group">
+                        <div class="row">
+                            <div class="col">
+                                <label>Volume</label>
+                            </div>
+                            <div class="col text-right">
+                                Stok : <span id="stok_1" class="text-warning">0</span>
+                            </div>
+                        </div>
+                        <div class="input-group mb-2">
+                            <input type="number" value="" class="form-control number-only" name="volume_1"
+                                id="volume_1" required>
+                            <input type="hidden" value="4" name="id_satuan_1" id="id_satuan_1">
+                            <div class="input-group-append">
+                                <div class="input-group-text">Pcs</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Kualitas</label>
+                        <select class="form-control select2" name="id_grade" id="grade" required>
+                            @foreach ($grade as $i)
+                                <option value="{{ $i->id }}">{{ $i->grade }} | {{ $i->alias }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" id="btn-close" class="btn btn-default btn-pure"
+                    onclick="closeModal()">Batal</button>
+                <button type="button" class="btn btn-primary" onclick="simpan($(this))"
+                    data-proses="p2">Simpan</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+    $(function() {
+        var editgudang = '';
+        var editbarang = '';
+        $('#id_p2').val(id);
+        $('.select2').select2({
+            dropdownParent: $('#modal-kelola'),
+            width: '100%',
+            allowClear: true,
+            placeholder: "-- pilih --",
+        });
+        selectGudang(`p2/get-gudang`, {
+            tipe: tipe,
+            id: id
+        });
+        $('#barang').select2({
+            dropdownParent: $('#modal-kelola'),
+            width: '100%',
+            allowClear: true,
+            placeholder: "-- pilih --",
+            ajax: {
+                url: `p2/get-barang`,
+                data: function(d) {
+                    d.tipe = tipe;
+                    d.id = id;
+                    d.id_gudang = $('#gudang').val();
+
+                    return d;
+                },
+                dataType: 'json',
+                delay: 250,
+                processResults: function(data) {
+                    return {
+                        results: data.data.map(function(data) {
+                            let idInspectRetur = data.id_inspect_retur || '';
+                            return {
+                                id: data.id,
+                                text: `${data.id_mesin ? data.nama_mesin+' | ' : ''}${data.id_beam ? data.nomor_kikw + ' | ' : ''}${data.id_songket ? data.nomor_kiks + ' | ' : ''}${data.nama_barang} | ${data.nama_warna} | ${data.nama_motif} | ${data.nama_grade}${(idInspectRetur != '') ? ' | RETUR' : ''}${data.tanggal_potong ? ' | '+data.tanggal_potong_text:''}`,
+                                data: {
+                                    id_mesin: data.id_mesin,
+                                    id_barang: data.id_barang,
+                                    id_warna: data.id_warna,
+                                    id_motif: data.id_motif,
+                                    id_beam: data.id_beam,
+                                    id_songket: data.id_songket,
+                                    id_grade: data.id_grade,
+                                    id_grade_awal: data.id_grade,
+                                    id_parent: data.id,
+                                    tanggal_potong: data.tanggal_potong,
+                                    id_inspect_retur: idInspectRetur
+                                }
+                            };
+                        }),
+                        pagination: {
+                            more: data.next_page_url ? true : false
+                        }
+                    };
+                },
+                error: () => {},
+                cache: true
+            }
+        });
+    });
+
+    function tableDetail(id, tipe) {
+        table = $('#table-detail').DataTable({
+            processing: true,
+            serverSide: true,
+            stateSave: true,
+            responsive: true,
+            autoWidth: false,
+            searching: false,
+            order: [],
+            ajax: `p2/table/${mode}/${id}/${tipe}`,
+            lengthMenu: [15, 25, 50, 100],
+            processing: true,
+            columns: [{
+                    data: 'DT_RowIndex',
+                    name: 'DT_RowIndex',
+                    searchable: false,
+                    orderable: false
+                },
+                {
+                    data: 'tanggal',
+                    name: 'tanggal'
+                },
+                {
+                    data: 'tanggal_potong',
+                    name: 'tanggal_potong'
+                },
+                {
+                    data: 'mesin',
+                    name: 'mesin'
+                },
+                {
+                    data: 'no_kikw',
+                    name: 'no_kikw'
+                },
+                {
+                    data: 'no_kiks',
+                    name: 'no_kiks'
+                },
+                {
+                    data: 'barang',
+                    name: 'barang'
+                },
+                {
+                    data: 'warna',
+                    name: 'warna'
+                },
+                {
+                    data: 'motif',
+                    name: 'motif'
+                },
+                {
+                    data: 'grade',
+                    name: 'grade'
+                },
+                {
+                    data: 'gudang',
+                    name: 'gudang'
+                },
+                {
+                    data: 'volume_1',
+                    name: 'volume_1'
+                },
+                {
+                    data: null,
+                    name: 'status',
+                    render: (data) => {
+                        let jumlahInspekting = data.jumlah_inspecting_p2 || 0;
+                        let checkRetur = data.id_inspect_retur || 0;
+                        if (jumlahInspekting > 0) {
+                            return `<span class="badge badge-outline badge-primary">Proses ${checkRetur ? 'Retur ' : ''}Inspect</span>`;
+                        } else {
+                            return `<span class="badge badge-outline badge-warning">Belum Inspect</span>`;
+                        }
+                    }
+                },
+                {
+                    data: 'action',
+                    name: 'action'
+                }
+            ]
+        });
+    }
+
+    function getBarang(this_) {
+        let val = this_.select2('data')[0];
+        var gudang = $('#gudang').val();
+        var id = $('#id').val();
+        if (val) {
+            var mesin = val.data.id_mesin;
+            var barang = val.data.id_barang;
+            var warna = val.data.id_warna;
+            var motif = val.data.id_motif;
+            var beam = val.data.id_beam;
+            var songket = val.data.id_songket;
+            var id_detail = this_.val();
+            var tanggal_potong = val.data.tanggal_potong;
+            if (!id) {
+                var grade = val.data.id_grade;
+                $('#grade').val(val.data.id_grade).trigger('change');
+            } else {
+                var grade = val.data.id_grade_awal || null;
+            }
+            $('#id_mesin').val(val.data.id_mesin);
+            $('#id_barang').val(val.data.id_barang);
+            $('#id_warna').val(val.data.id_warna);
+            $('#id_motif').val(val.data.id_motif);
+            $('#id_beam').val(val.data.id_beam);
+            $('#id_songket').val(val.data.id_songket);
+            $('#id_parent').val(val.data.id_parent);
+            $('#id_inspect_retur').val(val.data.id_inspect_retur);
+            $('#tanggal_potong').val(tanggal_potong);
+
+            var data = {
+                tipe: tipe,
+                id_mesin: mesin,
+                id_barang: barang,
+                id_warna: warna,
+                id_gudang: gudang,
+                id_motif: motif,
+                id_beam: beam,
+                id_songket: songket,
+                id_grade: grade,
+                tanggal_potong: tanggal_potong,
+                id: id_detail
+            };
+            getStok(data);
+        }
+
+    }
+
+    function edit(this_) {
+        $('.modal-title').text('Edit');
+        $('#modal-kelola').modal('show');
+        var id = this_.data('id');
+        var data = {
+            mode: mode,
+            id: id
+        };
+        $.ajax({
+            url: `p2/get-data`,
+            data: data,
+            type: 'GET',
+            success: function(data) {
+                $('#id').val(data.id);
+                $('#tanggal').val(data.tanggal);
+                $(`#gudang`).select2("trigger", "select", {
+                    data: {
+                        id: data.id_gudang,
+                        text: data.nama_gudang
+                    }
+                });
+                editgudang = data.id_gudang;
+                $(`#barang`).select2("trigger", "select", {
+                    data: {
+                        id: data.id_parent,
+                        text: `${data.id_mesin ? data.nama_mesin+' | ' : ''}${data.id_beam ? data.nomor_kikw + ' | ' : ''}${data.id_songket ? data.nomor_kiks + ' | ' : ''}${data.nama_barang} | ${data.nama_warna} | ${data.nama_motif} | ${data.nama_grade_awal}${data.tanggal_potong ? ' | '+data.tanggal_potong_text:''}`,
+                        data: {
+                            id_mesin: data.id_mesin,
+                            id_barang: data.id_barang,
+                            id_warna: data.id_warna,
+                            id_motif: data.id_motif,
+                            id_beam: data.id_beam,
+                            id_songket: data.id_songket,
+                            id_grade: data.id_grade,
+                            id_grade_awal: data.id_grade_awal,
+                            tanggal_potong: data.tanggal_potong,
+                            id_parent: data.id_parent
+                        }
+                    }
+                });
+                editbarang =
+                    `${data.id_mesin},${data.id_beam},${data.id_songket},${data.id_barang},${data.id_warna},${data.id_motif},${data.id_grade_awal},${data.tanggal_potong}`;
+                $('#grade').val(data.id_grade).trigger('change');
+                $('#volume_1').val(data.volume_1);
+                $('#volume_2').val(data.volume_2);
+            },
+            error: function(error) {
+                console.error('Error:', error);
+            }
+        });
+    }
+
+    function closeModal() {
+        $('#modal-kelola').modal('hide');
+        $('#id').val('');
+        $('#id_parent').val('');
+        $('#tanggal').val(`{{ date('Y-m-d') }}`);
+        $('#id_mesin').val('');
+        $('#id_barang').val('');
+        $('#id_warna').val('');
+        $('#id_motif').val('');
+        $('#id_beam').val('');
+        $('#id_songket').val('');
+        $('#grade').val(null).trigger('change');
+        $('#volume_1').val('');
+        $('#stok_1').text(0);
+        $('#barang').empty();
+        $('#gudang').empty();
+        $('#tanggal_potong').val('');
+    }
+
+    function tambah(this_) {
+        $('.modal-title').text('Tambah');
+        $('#modal-kelola').modal('show');
+        $('#id_p2').val(id);
+        $('#grade').val(null).trigger('change');
+    }
+
+    function getStok(data = {}) {
+        $.ajax({
+            url: `p2/get-stok-barang`,
+            type: 'GET',
+            data: data,
+            success: function(respon) {
+                var id = $('#id').val();
+                if (id == "") {
+                    $('#stok_1').text(respon.stok_1);
+                    $('#stok_2').text(respon.stok_2);
+                    $('#volume_1').val(respon.stok_1);
+                    $('#volume_2').val(respon.stok_2);
+                } else {
+                    var tempbarang =
+                        `${data.id_mesin},${data.id_beam},${data.id_songket},${data.id_barang},${data.id_warna},${data.id_motif},${data.id_grade},${data.tanggal_potong}`;
+                    if (editgudang != data.id_gudang || editbarang != tempbarang) {
+                        $('#stok_1').text(respon.stok_1);
+                        $('#stok_2').text(respon.stok_2);
+                    } else {
+                        $('#stok_1').text(parseFloat(parseFloat(respon.stok_1) + parseFloat($('#volume_1')
+                            .val())));
+                        $('#stok_2').text(parseFloat(parseFloat(respon.stok_2) + parseFloat($('#volume_2')
+                            .val())));
+                    }
+                }
+            },
+            error: function(error) {
+                console.error('Error:', error);
+            }
+        });
+    }
+</script>
